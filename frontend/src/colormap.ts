@@ -193,3 +193,85 @@ export function mapScalarToRGBA(
   // 4. Interpolate palette
   return interpolatePalette(norm, points, mapping.interpolate);
 }
+
+const LUT_SIZE = 1024;
+const TRANSPARENT: [number, number, number, number] = [0, 0, 0, 0];
+
+export interface PaletteLUT {
+  posTable: Float32Array;
+  negTable: Float32Array;
+  posThresh: number;
+  negThresh: number;
+  thresholdOn: boolean;
+  displayPositive: boolean;
+  displayNegative: boolean;
+  displayZero: boolean;
+}
+
+export function buildPaletteLUT(
+  mapping: PaletteMapping,
+  points: PaletteControlPoint[],
+): PaletteLUT {
+  const posTable = new Float32Array(LUT_SIZE * 4);
+  const negTable = new Float32Array(LUT_SIZE * 4);
+
+  for (let i = 0; i < LUT_SIZE; i++) {
+    const posNorm = i / (LUT_SIZE - 1);
+    const [pr, pg, pb, pa] = interpolatePalette(posNorm, points, mapping.interpolate);
+    posTable[i * 4] = pr;
+    posTable[i * 4 + 1] = pg;
+    posTable[i * 4 + 2] = pb;
+    posTable[i * 4 + 3] = pa;
+
+    const negNorm = -1 + i / (LUT_SIZE - 1);
+    const [nr, ng, nb, na] = interpolatePalette(negNorm, points, mapping.interpolate);
+    negTable[i * 4] = nr;
+    negTable[i * 4 + 1] = ng;
+    negTable[i * 4 + 2] = nb;
+    negTable[i * 4 + 3] = na;
+  }
+
+  return {
+    posTable,
+    negTable,
+    posThresh: mapping.posThresh,
+    negThresh: mapping.negThresh,
+    thresholdOn: mapping.thresholdOn,
+    displayPositive: mapping.displayPositive,
+    displayNegative: mapping.displayNegative,
+    displayZero: mapping.displayZero,
+  };
+}
+
+export function mapScalarWithLUT(
+  value: number,
+  mapping: PaletteMapping,
+  lut: PaletteLUT,
+): [number, number, number, number] {
+  if (lut.thresholdOn) {
+    if (value > 0 && value < lut.posThresh) return TRANSPARENT;
+    if (value < 0 && value > -lut.negThresh) return TRANSPARENT;
+  }
+  if (value === 0 && !lut.displayZero) return TRANSPARENT;
+
+  if (value > 0) {
+    if (!lut.displayPositive) return TRANSPARENT;
+    const range = mapping.posMax - mapping.posMin;
+    let norm = range !== 0 ? (value - mapping.posMin) / range : 1;
+    norm = Math.max(0, Math.min(1, norm));
+    const idx = (norm * (LUT_SIZE - 1) + 0.5) | 0;
+    const o = idx * 4;
+    return [lut.posTable[o], lut.posTable[o + 1], lut.posTable[o + 2], lut.posTable[o + 3]];
+  } else if (value < 0) {
+    if (!lut.displayNegative) return TRANSPARENT;
+    const lo = Math.min(mapping.negMin, mapping.negMax);
+    const hi = Math.max(mapping.negMin, mapping.negMax);
+    const range = hi - lo;
+    let norm01 = range !== 0 ? (value - lo) / range : 0;
+    norm01 = Math.max(0, Math.min(1, norm01));
+    const idx = (norm01 * (LUT_SIZE - 1) + 0.5) | 0;
+    const o = idx * 4;
+    return [lut.negTable[o], lut.negTable[o + 1], lut.negTable[o + 2], lut.negTable[o + 3]];
+  }
+  return TRANSPARENT;
+}

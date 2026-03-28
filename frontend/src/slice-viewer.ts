@@ -1,5 +1,6 @@
 import type { VolumeData, PaletteControlPoint, PaletteMapping } from './types';
-import { mapScalarToRGBA, mapClusterToRGB } from './colormap';
+import { mapScalarToRGBA, mapScalarWithLUT, mapClusterToRGB, buildPaletteLUT } from './colormap';
+import type { PaletteLUT } from './colormap';
 
 const BG_COLOR = 26; // #1a1a1a
 
@@ -35,10 +36,27 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
   let isClustMode = false;
   let clusterLookup: Map<number, number> = new Map();
   let showOverlay = true;
+  let cachedLUT: PaletteLUT | null = null;
 
   let ci = 0;
   let cj = 0;
   let ck = 0;
+
+  // Reusable offscreen canvases and image data, keyed by "dimA,dimB"
+  const offscreenCache = new Map<string, { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; imgData: ImageData }>();
+
+  function getOffscreen(dimA: number, dimB: number): { ctx: OffscreenCanvasRenderingContext2D; canvas: OffscreenCanvas; imgData: ImageData } {
+    const key = `${dimA},${dimB}`;
+    let entry = offscreenCache.get(key);
+    if (!entry) {
+      const c = new OffscreenCanvas(dimA, dimB);
+      const cx = c.getContext('2d')!;
+      const img = cx.createImageData(dimA, dimB);
+      entry = { canvas: c, ctx: cx, imgData: img };
+      offscreenCache.set(key, entry);
+    }
+    return entry;
+  }
 
   interface SliceLayout {
     // Axial: draws di cols × dj rows
@@ -113,7 +131,8 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
   ): void {
     if (!mapping) return;
 
-    const imgData = ctx2d.createImageData(dimA, dimB);
+    const offEntry = getOffscreen(dimA, dimB);
+    const imgData = offEntry.imgData;
     const pixels = imgData.data;
 
     for (let a = 0; a < dimA; a++) {
@@ -223,7 +242,7 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
           }
         }
 
-        const [r, g, b2, a2] = mapScalarToRGBA(val, mapping, palette);
+        const [r, g, b2, a2] = cachedLUT ? mapScalarWithLUT(val, mapping, cachedLUT) : mapScalarToRGBA(val, mapping, palette);
         if (a2 === 0) {
           pixels[idx] = bgR;
           pixels[idx + 1] = bgG;
@@ -238,12 +257,10 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
       }
     }
 
-    const offscreen = new OffscreenCanvas(dimA, dimB);
-    const offCtx = offscreen.getContext('2d')!;
-    offCtx.putImageData(imgData, 0, 0);
+    offEntry.ctx.putImageData(imgData, 0, 0);
 
     ctx2d.imageSmoothingEnabled = false;
-    ctx2d.drawImage(offscreen, ox, oy, qw, qh);
+    ctx2d.drawImage(offEntry.canvas, ox, oy, qw, qh);
 
     // Crosshairs
     ctx2d.strokeStyle = 'rgba(0, 255, 0, 0.5)';
@@ -468,6 +485,7 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
       fileThreshTest = newFileThreshTest;
       isClustMode = newClustMode ?? false;
       clusterLookup = newClustLookup ?? new Map();
+      cachedLUT = mapping ? buildPaletteLUT(mapping, palette) : null;
     },
 
     setShowOverlay(show: boolean): void {
