@@ -15,6 +15,7 @@ export interface SliceViewer {
     clustMode?: boolean,
     clustLookup?: Map<number, number>,
   ): void;
+  setShowOverlay(show: boolean): void;
   render(): void;
   dispose(): void;
 }
@@ -33,6 +34,7 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
   let fileThreshTest = 'THRESHOLD_TEST_SHOW_OUTSIDE';
   let isClustMode = false;
   let clusterLookup: Map<number, number> = new Map();
+  let showOverlay = true;
 
   let ci = 0;
   let cj = 0;
@@ -134,6 +136,13 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
         }
 
         // Check overlay
+        if (!showOverlay) {
+          pixels[idx] = bgR;
+          pixels[idx + 1] = bgG;
+          pixels[idx + 2] = bgB;
+          pixels[idx + 3] = 255;
+          continue;
+        }
         const val = sliceExtract(a, b);
         if (isNaN(val) || val === 0) {
           pixels[idx] = bgR;
@@ -459,6 +468,10 @@ export function createSliceViewer(canvas: HTMLCanvasElement): SliceViewer {
       fileThreshTest = newFileThreshTest;
       isClustMode = newClustMode ?? false;
       clusterLookup = newClustLookup ?? new Map();
+    },
+
+    setShowOverlay(show: boolean): void {
+      showOverlay = show;
     },
 
     render,

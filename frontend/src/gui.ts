@@ -11,6 +11,7 @@ export interface GuiState {
   posMax: number;
   negMin: number;
   negMax: number;
+  hideOverlay: boolean;
   showParcelBoundaries: boolean;
   showSelectedParcels: boolean;
   parcelOpacity: number;
@@ -268,6 +269,7 @@ export function createGui(
     posMax: 1,
     negMin: -1,
     negMax: 0,
+    hideOverlay: false,
     showParcelBoundaries: false,
     showSelectedParcels: false,
     parcelOpacity: 0.85,
@@ -404,6 +406,7 @@ export function createGui(
 
   // Parcellation overlay (open by default)
   const parcelFolder = gui.addFolder('CAB-NP Parcels');
+  parcelFolder.add(state, 'hideOverlay').name('Hide Overlay').onChange(callbacks.onColorsChange);
   parcelFolder.add(state, 'showParcelBoundaries').name('Boundaries').onChange(callbacks.onColorsChange);
   parcelFolder.add(state, 'showSelectedParcels').name('Selected Parcels').onChange(callbacks.onColorsChange);
   parcelFolder.add(state, 'parcelBlend', ['outline', 'fill']).name('Mode').onChange(callbacks.onColorsChange);

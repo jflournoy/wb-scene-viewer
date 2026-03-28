@@ -78,70 +78,80 @@ function rerenderColorsForHemi(
 
   const nV = overlay.data.length;
   const colors = new Float32Array(nV * 3);
-  const useClustMap = isClustOverlay();
-  const mapping = buildPaletteMapping(guiState);
-  const useFileThresh = !useClustMap && sceneConfig.threshold?.type === 'THRESHOLD_TYPE_FILE' && threshData;
-  const fileThreshMin = sceneConfig.threshold?.min ?? 0;
-  const fileThreshMax = sceneConfig.threshold?.max ?? 0;
   const hemiKey = (mesh === meshLeft) ? 'left' : 'right';
-  const boundaryMask = useClustMap ? clustBoundary[hemiKey] : undefined;
 
-  for (let i = 0; i < nV; i++) {
-    const val = overlay.data[i];
-    if (isNaN(val)) {
+  if (guiState.hideOverlay) {
+    // No overlay: fill with base gray
+    for (let i = 0; i < nV; i++) {
       colors[i * 3] = BASE_GRAY[0];
       colors[i * 3 + 1] = BASE_GRAY[1];
       colors[i * 3 + 2] = BASE_GRAY[2];
-      continue;
     }
+  } else {
+    const useClustMap = isClustOverlay();
+    const mapping = buildPaletteMapping(guiState);
+    const useFileThresh = !useClustMap && sceneConfig.threshold?.type === 'THRESHOLD_TYPE_FILE' && threshData;
+    const fileThreshMin = sceneConfig.threshold?.min ?? 0;
+    const fileThreshMax = sceneConfig.threshold?.max ?? 0;
+    const boundaryMask = useClustMap ? clustBoundary[hemiKey] : undefined;
 
-    if (useClustMap) {
-      const [r, g, b, a] = mapClusterToRGB(val, clustLookup);
+    for (let i = 0; i < nV; i++) {
+      const val = overlay.data[i];
+      if (isNaN(val)) {
+        colors[i * 3] = BASE_GRAY[0];
+        colors[i * 3 + 1] = BASE_GRAY[1];
+        colors[i * 3 + 2] = BASE_GRAY[2];
+        continue;
+      }
+
+      if (useClustMap) {
+        const [r, g, b, a] = mapClusterToRGB(val, clustLookup);
+        if (a === 0) {
+          colors[i * 3] = BASE_GRAY[0];
+          colors[i * 3 + 1] = BASE_GRAY[1];
+          colors[i * 3 + 2] = BASE_GRAY[2];
+        } else if (boundaryMask && boundaryMask[i] === 1) {
+          // White outlines for cluster boundaries (distinct from dark CAB-NP parcel borders)
+          colors[i * 3] = r * 0.25 + 0.75;
+          colors[i * 3 + 1] = g * 0.25 + 0.75;
+          colors[i * 3 + 2] = b * 0.25 + 0.75;
+        } else {
+          colors[i * 3] = r;
+          colors[i * 3 + 1] = g;
+          colors[i * 3 + 2] = b;
+        }
+        continue;
+      }
+
+      if (useFileThresh) {
+        const threshVal = threshData.data[i];
+        if (isNaN(threshVal)) {
+          colors[i * 3] = BASE_GRAY[0];
+          colors[i * 3 + 1] = BASE_GRAY[1];
+          colors[i * 3 + 2] = BASE_GRAY[2];
+          continue;
+        }
+        const outside = threshVal < fileThreshMin || threshVal > fileThreshMax;
+        const isShowOutside = sceneConfig.threshold?.test === 'THRESHOLD_TEST_SHOW_OUTSIDE';
+        const visible = isShowOutside ? outside : !outside;
+        if (!visible) {
+          colors[i * 3] = BASE_GRAY[0];
+          colors[i * 3 + 1] = BASE_GRAY[1];
+          colors[i * 3 + 2] = BASE_GRAY[2];
+          continue;
+        }
+      }
+
+      const [r, g, b, a] = mapScalarToRGBA(val, mapping, activePalette);
       if (a === 0) {
         colors[i * 3] = BASE_GRAY[0];
         colors[i * 3 + 1] = BASE_GRAY[1];
         colors[i * 3 + 2] = BASE_GRAY[2];
-      } else if (boundaryMask && boundaryMask[i] === 1) {
-        // White outlines for cluster boundaries (distinct from dark CAB-NP parcel borders)
-        colors[i * 3] = r * 0.25 + 0.75;
-        colors[i * 3 + 1] = g * 0.25 + 0.75;
-        colors[i * 3 + 2] = b * 0.25 + 0.75;
       } else {
         colors[i * 3] = r;
         colors[i * 3 + 1] = g;
         colors[i * 3 + 2] = b;
       }
-      continue;
-    }
-
-    if (useFileThresh) {
-      const threshVal = threshData.data[i];
-      if (isNaN(threshVal)) {
-        colors[i * 3] = BASE_GRAY[0];
-        colors[i * 3 + 1] = BASE_GRAY[1];
-        colors[i * 3 + 2] = BASE_GRAY[2];
-        continue;
-      }
-      const outside = threshVal < fileThreshMin || threshVal > fileThreshMax;
-      const isShowOutside = sceneConfig.threshold?.test === 'THRESHOLD_TEST_SHOW_OUTSIDE';
-      const visible = isShowOutside ? outside : !outside;
-      if (!visible) {
-        colors[i * 3] = BASE_GRAY[0];
-        colors[i * 3 + 1] = BASE_GRAY[1];
-        colors[i * 3 + 2] = BASE_GRAY[2];
-        continue;
-      }
-    }
-
-    const [r, g, b, a] = mapScalarToRGBA(val, mapping, activePalette);
-    if (a === 0) {
-      colors[i * 3] = BASE_GRAY[0];
-      colors[i * 3 + 1] = BASE_GRAY[1];
-      colors[i * 3 + 2] = BASE_GRAY[2];
-    } else {
-      colors[i * 3] = r;
-      colors[i * 3 + 1] = g;
-      colors[i * 3 + 2] = b;
     }
   }
 
@@ -205,6 +215,7 @@ function rerenderColors(): void {
   rerenderColorsForHemi(meshRight, overlayData['right'], thresholdData['right']);
 
   // Update slice viewer
+  sliceViewer.setShowOverlay(!guiState.hideOverlay);
   const mapping = buildPaletteMapping(guiState);
   sliceViewer.setColorMapping(
     mapping,
