@@ -1,0 +1,16 @@
+# Dependencies
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE / editor
+.history/
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store

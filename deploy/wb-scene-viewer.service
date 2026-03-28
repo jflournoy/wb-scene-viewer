@@ -1,0 +1,17 @@
+[Unit]
+Description=Workbench Brain Surface Viewer
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/wb-scene-viewer
+ExecStart=/opt/wb-scene-viewer/.venv/bin/python server.py /opt/wb-scene-viewer/guessing-scene.zip --host 127.0.0.1 --port 8421 --no-browser
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wb-scene-viewer
+
+[Install]
+WantedBy=multi-user.target

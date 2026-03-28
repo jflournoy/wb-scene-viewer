@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brain Surface Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; }
+    #app {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+    #pane-settings {
+      width: 260px;
+      flex-shrink: 0;
+      height: 100%;
+      overflow-y: auto;
+      border-right: 1px solid #333;
+      background: #1a1a1a;
+    }
+    #pane-settings .lil-gui.root {
+      position: static !important;
+      width: 100% !important;
+    }
+    #viewer-area {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 2fr 3fr;
+      min-width: 0;
+      height: 100%;
+    }
+    .pane {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      border-right: 1px solid #333;
+      border-bottom: 1px solid #333;
+    }
+    #pane-left { border-bottom: none; }
+    #pane-right { border-right: none; }
+    #pane-subcort {
+      grid-column: 1 / 3;
+      border-right: none;
+      border-bottom: none;
+    }
+    .pane canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .pane-label {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      color: #888;
+      font: 12px/1 monospace;
+      pointer-events: none;
+      z-index: 1;
+    }
+  </style>
+  <script type="module" crossorigin src="/viewer/assets/index-_ZuctyPb.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div id="pane-settings"></div>
+    <div id="viewer-area">
+      <div class="pane" id="pane-left">
+        <span class="pane-label">Left Hemisphere</span>
+        <canvas id="viewer-left"></canvas>
+      </div>
+      <div class="pane" id="pane-right">
+        <span class="pane-label">Right Hemisphere</span>
+        <canvas id="viewer-right"></canvas>
+      </div>
+      <div class="pane" id="pane-subcort">
+        <span class="pane-label">Subcortical</span>
+        <canvas id="viewer-subcort"></canvas>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
